@@ -229,6 +229,7 @@ fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -
                 Text(text = task.title, style = MaterialTheme.typography.titleLarge)
                 Text(text = "État: ${task.status}", color = MaterialTheme.colorScheme.primary)
                 Text(text = "Priorité: ${task.priority}", color = priorityColor, style = MaterialTheme.typography.labelLarge)
+                Text(text = "Répétition: ${task.periodicity}", style = MaterialTheme.typography.labelSmall)
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
