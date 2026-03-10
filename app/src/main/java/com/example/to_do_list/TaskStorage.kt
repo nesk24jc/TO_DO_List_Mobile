@@ -16,6 +16,7 @@ class TaskStorage(context: Context) {
             jsonObject.put("title", task.title)
             jsonObject.put("status", task.status)
             jsonObject.put("priority",task.priority)
+            jsonObject.put("periodicity", task.periodicity)
             jsonArray.put(jsonObject)
         }
 
@@ -34,7 +35,8 @@ class TaskStorage(context: Context) {
                 Task(
                     title = jsonObject.getString("title"),
                     status = jsonObject.getString("status"),
-                    priority = if (jsonObject.has("priority")) jsonObject.getString("priority") else "Basse"
+                    priority = if (jsonObject.has("priority")) jsonObject.getString("priority") else "Basse",
+                    periodicity = if (jsonObject.has("periodicity")) jsonObject.getString("periodicity") else "Aucune"
                 )
 
             )

@@ -107,11 +107,14 @@ fun TodoApp() {
                 TaskFormScreen(
                     initialTitle = taskToEdit?.title ?: "",
                     initialPriority = taskToEdit?.priority ?: "Basse",
-                    onSave = { newTitle, newPriority ->
+                    initialPeriodicity = taskToEdit?.periodicity ?: "Aucune", // NOUVEAU
+                    onSave = { newTitle, newPriority, newPeriodicity -> // NOUVEAU
                         val updatedList = if (taskToEdit == null) {
-                            myTasks + Task(title = newTitle, priority = newPriority)
+                            myTasks + Task(title = newTitle, priority = newPriority, periodicity = newPeriodicity)
                         } else {
-                            myTasks.map { if (it == taskToEdit) it.copy(title = newTitle, priority = newPriority) else it }
+                            myTasks.map {
+                                if (it == taskToEdit) it.copy(title = newTitle, priority = newPriority, periodicity = newPeriodicity) else it
+                            }
                         }
                         myTasks = updatedList
                         taskStorage.saveTasks(updatedList)
@@ -142,16 +145,30 @@ fun TodoApp() {
                     TaskListScreen(
                         tasks = filteredTasks,
                         onTaskUpdated = { taskToUpdate, newStatus ->
-                            val updatedList = myTasks.map {
+                            var updatedList = myTasks.map {
                                 if (it == taskToUpdate) it.copy(status = newStatus) else it
                             }
+
+                            // NOUVEAU : LA MAGIE DE LA PÉRIODICITÉ
+                            if (newStatus == "Réalisée") {
+                                showWowEffect = true // On garde l'effet Waouh !
+
+                                // Si la tâche doit se répéter, on crée un clone en mode "À faire"
+                                if (taskToUpdate.periodicity != "Aucune") {
+                                    val nextTask = Task(
+                                        title = taskToUpdate.title,
+                                        priority = taskToUpdate.priority,
+                                        periodicity = taskToUpdate.periodicity,
+                                        status = "À faire"
+                                    )
+                                    // On ajoute le clone à la liste
+                                    updatedList = updatedList + nextTask
+                                    Toast.makeText(context, "Tâche périodique recréée !", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
                             myTasks = updatedList
                             taskStorage.saveTasks(updatedList)
-
-
-                            if (newStatus == "Réalisée") {
-                                showWowEffect = true
-                            }
                         },
                         onEditClicked = { task -> taskToEdit = task },
                         onDeleteClicked = { taskToDelete ->
@@ -237,10 +254,16 @@ fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -
 
 
 @Composable
-fun TaskFormScreen(initialTitle: String, initialPriority: String = "Basse", onSave: (String, String) -> Unit, onCancel: () -> Unit) {
+fun TaskFormScreen(
+    initialTitle: String,
+    initialPriority: String = "Basse",
+    initialPeriodicity: String = "Aucune",
+    onSave: (String, String, String) -> Unit,
+    onCancel: () -> Unit
+) {
     var title by remember { mutableStateOf(initialTitle) }
-
     var priority by remember { mutableStateOf(initialPriority) }
+    var periodicity by remember { mutableStateOf(initialPeriodicity) }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
@@ -256,6 +279,7 @@ fun TaskFormScreen(initialTitle: String, initialPriority: String = "Basse", onSa
             modifier = Modifier.fillMaxWidth()
         )
 
+
         Spacer(Modifier.height(16.dp))
         Text("Priorité :", style = MaterialTheme.typography.bodyLarge)
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -264,11 +288,20 @@ fun TaskFormScreen(initialTitle: String, initialPriority: String = "Basse", onSa
             FilterButton("Haute", priority) { priority = it }
         }
 
+
+        Spacer(Modifier.height(16.dp))
+        Text("Répéter :", style = MaterialTheme.typography.bodyLarge)
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            FilterButton("Aucune", periodicity) { periodicity = it }
+            FilterButton("Jour", periodicity) { periodicity = it }
+            FilterButton("Semaine", periodicity) { periodicity = it }
+        }
+
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onCancel) { Text("Annuler") }
 
-            Button(onClick = { if (title.isNotBlank()) onSave(title, priority) }) {
+            Button(onClick = { if (title.isNotBlank()) onSave(title, priority, periodicity) }) {
                 Text("Sauvegarder")
             }
         }
