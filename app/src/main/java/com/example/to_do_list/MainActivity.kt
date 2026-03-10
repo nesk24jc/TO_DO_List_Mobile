@@ -237,4 +237,16 @@ fun TaskFormScreen(initialTitle: String, onSave: (String) -> Unit, onCancel: () 
             }
         }
     }
+
+}
+@Composable
+fun FilterButton(text: String, currentFilter: String, onClick: (String) -> Unit) {
+    Button(
+        onClick = { onClick(text) },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (currentFilter == text) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+        )
+    ) {
+        Text(text)
+    }
 }
