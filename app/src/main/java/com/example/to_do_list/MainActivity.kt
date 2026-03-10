@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.Check
@@ -37,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
-
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 val AppBackground = Color(0xFFF3F4F6)
 val CardBackground = Color(0xFFFFFFFF)
@@ -70,8 +73,34 @@ fun TodoApp() {
     var currentFilter by remember { mutableStateOf("Toutes") }
     var showWowEffect by remember { mutableStateOf(false) }
 
+
+    var userScore by remember { mutableStateOf(taskStorage.getScore()) }
+
+
+    val userLevel = when {
+        userScore >= 500 -> "👑 Maître du Temps"
+        userScore >= 200 -> "🔥 Machine de Guerre"
+        userScore >= 50 -> "🚀 Productif"
+        else -> "🌱 Débutant"
+    }
+
+
     LaunchedEffect(myTasks) {
-        val overdueCount = myTasks.count { it.status == "En retard" }
+        val currentTime = System.currentTimeMillis()
+        var needsSave = false
+        val updatedList = myTasks.map { task ->
+            if (task.status == "À faire" && task.dueDateMillis != null && task.dueDateMillis < currentTime) {
+                needsSave = true
+                task.copy(status = "En retard")
+            } else {
+                task
+            }
+        }
+        if (needsSave) {
+            myTasks = updatedList
+            taskStorage.saveTasks(updatedList)
+        }
+        val overdueCount = updatedList.count { it.status == "En retard" }
         if (overdueCount > 0) {
             Toast.makeText(context, "⚠️ Vous avez $overdueCount tâche(s) en retard !", Toast.LENGTH_LONG).show()
         }
@@ -117,8 +146,7 @@ fun TodoApp() {
                         onClick = { showAddScreen = true },
                         shape = CircleShape,
                         containerColor = PrimaryAccent,
-                        contentColor = Color.White,
-                        elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                        contentColor = Color.White
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = "Ajouter", modifier = Modifier.size(28.dp))
                     }
@@ -128,15 +156,17 @@ fun TodoApp() {
             Box(modifier = Modifier.padding(padding)) {
                 if (showAddScreen || taskToEdit != null) {
                     TaskFormScreen(
+
                         initialTitle = taskToEdit?.title ?: "",
                         initialPriority = taskToEdit?.priority ?: "Basse",
                         initialPeriodicity = taskToEdit?.periodicity ?: "Aucune",
-                        onSave = { newTitle, newPriority, newPeriodicity ->
+                        initialDueDate = taskToEdit?.dueDateMillis,
+                        onSave = { newTitle, newPriority, newPeriodicity, newDueDate ->
                             val updatedList = if (taskToEdit == null) {
-                                myTasks + Task(title = newTitle, priority = newPriority, periodicity = newPeriodicity)
+                                myTasks + Task(title = newTitle, priority = newPriority, periodicity = newPeriodicity, dueDateMillis = newDueDate)
                             } else {
                                 myTasks.map {
-                                    if (it == taskToEdit) it.copy(title = newTitle, priority = newPriority, periodicity = newPeriodicity) else it
+                                    if (it == taskToEdit) it.copy(title = newTitle, priority = newPriority, periodicity = newPeriodicity, dueDateMillis = newDueDate) else it
                                 }
                             }
                             myTasks = updatedList
@@ -150,20 +180,10 @@ fun TodoApp() {
                     Column(modifier = Modifier.fillMaxSize()) {
 
                         Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 16.dp)) {
-                            Text(
-                                text = "Mes Tâches",
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = TextMain
-                            )
-                            val remainingCount = myTasks.count { it.status != "Réalisée" }
-                            Text(
-                                text = if (remainingCount == 0) "Tout est terminé ! ✨" else "$remainingCount tâche(s) en attente",
-                                fontSize = 16.sp,
-                                color = TextSub
-                            )
-                        }
+                            Text(text = "Mes Tâches", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
 
+                            Text(text = "$userLevel • $userScore pts", fontSize = 16.sp, color = PrimaryAccent, fontWeight = FontWeight.Bold)
+                        }
 
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -172,50 +192,61 @@ fun TodoApp() {
                         ) {
                             val filters = listOf("Toutes", "À faire", "Réalisée", "En retard")
                             items(filters) { filterName ->
-                                PremiumFilterChip(
-                                    text = filterName,
-                                    isSelected = currentFilter == filterName,
-                                    onClick = { currentFilter = filterName }
+                                PremiumFilterChip(text = filterName, isSelected = currentFilter == filterName) { currentFilter = filterName }
+                            }
+                        }
+
+                        val filteredTasks = if (currentFilter == "Toutes") myTasks else myTasks.filter { it.status == currentFilter }
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(filteredTasks) { task ->
+                                PremiumTaskCard(
+                                    task = task,
+                                    onStatusChanged = { isChecked ->
+                                        val newStatus = if (isChecked) "Réalisée" else "À faire"
+                                        var updatedList = myTasks.map { if (it == task) it.copy(status = newStatus) else it }
+
+                                        if (newStatus == "Réalisée") {
+                                            showWowEffect = true
+
+
+                                            val pointsEarned = when(task.priority) {
+                                                "Haute" -> 30
+                                                "Moyenne" -> 20
+                                                else -> 10
+                                            }
+                                            userScore += pointsEarned
+                                            taskStorage.saveScore(userScore)
+                                            Toast.makeText(context, "+$pointsEarned points ! 🏆", Toast.LENGTH_SHORT).show()
+
+                                            if (task.periodicity != "Aucune") {
+                                                val nextTask = Task(title = task.title, priority = task.priority, periodicity = task.periodicity, status = "À faire", dueDateMillis = task.dueDateMillis?.plus(86400000))
+                                                updatedList = updatedList + nextTask
+                                                Toast.makeText(context, "Tâche recréée (+ points gagnés!)", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else if (newStatus == "À faire") {
+
+                                            val pointsLost = when(task.priority) { "Haute" -> 30; "Moyenne" -> 20; else -> 10 }
+                                            userScore = maxOf(0, userScore - pointsLost) 
+                                            taskStorage.saveScore(userScore)
+                                        }
+
+                                        myTasks = updatedList
+                                        taskStorage.saveTasks(updatedList)
+                                    },
+                                    onEditClicked = { taskToEdit = task },
+                                    onDeleteClicked = {
+                                        val updatedList = myTasks.filter { it != task }
+                                        myTasks = updatedList
+                                        taskStorage.saveTasks(updatedList)
+                                    }
                                 )
                             }
                         }
-
-                        val filteredTasks = if (currentFilter == "Toutes") {
-                            myTasks
-                        } else {
-                            myTasks.filter { it.status == currentFilter }
-                        }
-
-                        TaskListScreen(
-                            tasks = filteredTasks,
-                            onTaskUpdated = { taskToUpdate, newStatus ->
-                                var updatedList = myTasks.map {
-                                    if (it == taskToUpdate) it.copy(status = newStatus) else it
-                                }
-
-                                if (newStatus == "Réalisée") {
-                                    showWowEffect = true
-                                    if (taskToUpdate.periodicity != "Aucune") {
-                                        val nextTask = Task(
-                                            title = taskToUpdate.title,
-                                            priority = taskToUpdate.priority,
-                                            periodicity = taskToUpdate.periodicity,
-                                            status = "À faire"
-                                        )
-                                        updatedList = updatedList + nextTask
-                                        Toast.makeText(context, "Tâche périodique recréée !", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                                myTasks = updatedList
-                                taskStorage.saveTasks(updatedList)
-                            },
-                            onEditClicked = { task -> taskToEdit = task },
-                            onDeleteClicked = { taskToDelete ->
-                                val updatedList = myTasks.filter { it != taskToDelete }
-                                myTasks = updatedList
-                                taskStorage.saveTasks(updatedList)
-                            }
-                        )
                     }
                 }
             }
@@ -224,35 +255,9 @@ fun TodoApp() {
 }
 
 @Composable
-fun TaskListScreen(
-    tasks: List<Task>,
-    onTaskUpdated: (Task, String) -> Unit,
-    onEditClicked: (Task) -> Unit,
-    onDeleteClicked: (Task) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 80.dp), // Espace en bas pour le bouton
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(tasks) { task ->
-            PremiumTaskCard(
-                task = task,
-                onStatusChanged = { isChecked ->
-                    val newStatus = if (isChecked) "Réalisée" else "À faire"
-                    onTaskUpdated(task, newStatus)
-                },
-                onEditClicked = { onEditClicked(task) },
-                onDeleteClicked = { onDeleteClicked(task) }
-            )
-        }
-    }
-}
-
-
-@Composable
 fun PremiumTaskCard(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -> Unit, onDeleteClicked: () -> Unit) {
     val isDone = task.status == "Réalisée"
+    val isOverdue = task.status == "En retard"
 
     val priorityColor = when(task.priority) {
         "Haute" -> PriorityHigh
@@ -260,42 +265,26 @@ fun PremiumTaskCard(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicke
         else -> PriorityLow
     }
 
-
-    val cardBackgroundColor by animateColorAsState(
-        targetValue = if (isDone) AppBackground else CardBackground,
-        animationSpec = tween(durationMillis = 300), label = ""
-    )
-
-    val titleColor by animateColorAsState(
-        targetValue = if (isDone) TextSub.copy(alpha = 0.6f) else TextMain,
-        animationSpec = tween(durationMillis = 300), label = ""
-    )
+    val cardBackgroundColor by animateColorAsState(targetValue = if (isDone) AppBackground else CardBackground, animationSpec = tween(300), label = "")
+    val titleColor by animateColorAsState(targetValue = if (isDone) TextSub.copy(alpha = 0.6f) else TextMain, animationSpec = tween(300), label = "")
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onStatusChanged(!isDone) }, // On peut cliquer sur toute la carte !
+        modifier = Modifier.fillMaxWidth().clickable { onStatusChanged(!isDone) },
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDone) 0.dp else 2.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Case à cocher circulaire personnalisée
-            IconButton(
-                onClick = { onStatusChanged(!isDone) },
-                modifier = Modifier.size(32.dp)
-            ) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onStatusChanged(!isDone) }, modifier = Modifier.size(32.dp)) {
                 Icon(
                     imageVector = if (isDone) Icons.Filled.CheckCircle else Icons.Outlined.Check,
                     contentDescription = "Cocher",
-                    tint = if (isDone) PrimaryAccent else TextSub.copy(alpha = 0.5f),
+                    tint = if (isDone) PrimaryAccent else if(isOverdue) PriorityHigh else TextSub.copy(alpha = 0.5f),
                     modifier = Modifier.size(28.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
-
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -309,32 +298,18 @@ fun PremiumTaskCard(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicke
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Badge Priorité
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isDone) Color.LightGray.copy(alpha = 0.3f) else priorityColor.copy(alpha = 0.15f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = task.priority,
-                            color = if (isDone) TextSub else priorityColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(if (isDone) Color.LightGray.copy(alpha = 0.3f) else priorityColor.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                        Text(text = task.priority, color = if (isDone) TextSub else priorityColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-
-                    // Badge Répétition
+                    if (task.dueDateMillis != null) {
+                        val dateString = SimpleDateFormat("dd MMM", Locale.FRANCE).format(Date(task.dueDateMillis))
+                        Text(text = "📅 $dateString", fontSize = 12.sp, color = if(isOverdue && !isDone) PriorityHigh else TextSub)
+                    }
                     if (task.periodicity != "Aucune") {
-                        Text(
-                            text = "↻ ${task.periodicity}",
-                            fontSize = 12.sp,
-                            color = TextSub
-                        )
+                        Text(text = "↻ ${task.periodicity}", fontSize = 12.sp, color = TextSub)
                     }
                 }
             }
-
 
             Row {
                 if (!isDone) {
@@ -350,26 +325,42 @@ fun PremiumTaskCard(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicke
     }
 }
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskFormScreen(
     initialTitle: String,
     initialPriority: String = "Basse",
     initialPeriodicity: String = "Aucune",
-    onSave: (String, String, String) -> Unit,
+    initialDueDate: Long? = null,
+    onSave: (String, String, String, Long?) -> Unit,
     onCancel: () -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var priority by remember { mutableStateOf(initialPriority) }
     var periodicity by remember { mutableStateOf(initialPeriodicity) }
+    var dueDate by remember { mutableStateOf(initialDueDate) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueDate ?: System.currentTimeMillis())
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dueDate = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) { Text("Confirmer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(CardBackground).padding(24.dp)) {
-        Text(
-            text = if (initialTitle.isEmpty()) "Nouvelle tâche" else "Modifier la tâche",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextMain
-        )
+        Text(text = if (initialTitle.isEmpty()) "Nouvelle tâche" else "Modifier la tâche", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TextMain)
         Spacer(Modifier.height(24.dp))
 
         OutlinedTextField(
@@ -378,12 +369,24 @@ fun TaskFormScreen(
             placeholder = { Text("Que devez-vous faire ?") },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryAccent,
-                unfocusedBorderColor = Color.LightGray
-            ),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryAccent, unfocusedBorderColor = Color.LightGray),
             singleLine = true
         )
+
+        Spacer(Modifier.height(24.dp))
+
+        // --- NOUVEAU : BOUTON DATE LIMITE ---
+        Text("Date limite", fontWeight = FontWeight.SemiBold, color = TextMain)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { showDatePicker = true },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextMain)
+        ) {
+            Icon(Icons.Filled.DateRange, contentDescription = "Date", modifier = Modifier.padding(end = 8.dp))
+            Text(if (dueDate != null) SimpleDateFormat("dd MMMM yyyy", Locale.FRANCE).format(Date(dueDate!!)) else "Sélectionner une date")
+        }
 
         Spacer(Modifier.height(24.dp))
         Text("Priorité", fontWeight = FontWeight.SemiBold, color = TextMain)
@@ -403,18 +406,14 @@ fun TaskFormScreen(
             PremiumFilterChip("Semaine", periodicity == "Semaine") { periodicity = it }
         }
 
-        Spacer(modifier = Modifier.weight(1f)) 
+        Spacer(modifier = Modifier.weight(1f))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).height(50.dp), shape = RoundedCornerShape(16.dp)) {
                 Text("Annuler", color = TextSub)
             }
             Button(
-                onClick = { if (title.isNotBlank()) onSave(title, priority, periodicity) },
+                onClick = { if (title.isNotBlank()) onSave(title, priority, periodicity, dueDate) },
                 modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
@@ -424,7 +423,6 @@ fun TaskFormScreen(
         }
     }
 }
-
 
 @Composable
 fun PremiumFilterChip(text: String, isSelected: Boolean, onClick: (String) -> Unit) {
@@ -438,12 +436,6 @@ fun PremiumFilterChip(text: String, isSelected: Boolean, onClick: (String) -> Un
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         modifier = Modifier.clickable { onClick(text) }
     ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            fontSize = 14.sp
-        )
+        Text(text = text, color = textColor, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontSize = 14.sp)
     }
 }

@@ -4,6 +4,8 @@ data class Task(
     val title: String,
     val status: String = "À faire",
     val priority: String = "Basse",
-    val periodicity: String ="Aucune"
+    val periodicity: String ="Aucune",
+    val dueDateMillis: Long? = null
+
 
 )
