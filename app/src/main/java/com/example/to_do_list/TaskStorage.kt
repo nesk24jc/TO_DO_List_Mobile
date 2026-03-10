@@ -15,6 +15,7 @@ class TaskStorage(context: Context) {
             val jsonObject = JSONObject()
             jsonObject.put("title", task.title)
             jsonObject.put("status", task.status)
+            jsonObject.put("priority",task.priority)
             jsonArray.put(jsonObject)
         }
 
@@ -32,8 +33,10 @@ class TaskStorage(context: Context) {
             tasksList.add(
                 Task(
                     title = jsonObject.getString("title"),
-                    status = jsonObject.getString("status")
+                    status = jsonObject.getString("status"),
+                    priority = if (jsonObject.has("priority")) jsonObject.getString("priority") else "Basse"
                 )
+
             )
         }
         return tasksList

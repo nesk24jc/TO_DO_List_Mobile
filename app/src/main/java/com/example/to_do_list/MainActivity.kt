@@ -106,11 +106,12 @@ fun TodoApp() {
             if (showAddScreen || taskToEdit != null) {
                 TaskFormScreen(
                     initialTitle = taskToEdit?.title ?: "",
-                    onSave = { newTitle ->
+                    initialPriority = taskToEdit?.priority ?: "Basse",
+                    onSave = { newTitle, newPriority ->
                         val updatedList = if (taskToEdit == null) {
-                            myTasks + Task(newTitle)
+                            myTasks + Task(title = newTitle, priority = newPriority)
                         } else {
-                            myTasks.map { if (it == taskToEdit) it.copy(title = newTitle) else it }
+                            myTasks.map { if (it == taskToEdit) it.copy(title = newTitle, priority = newPriority) else it }
                         }
                         myTasks = updatedList
                         taskStorage.saveTasks(updatedList)
@@ -191,6 +192,13 @@ fun TaskListScreen(
 
 @Composable
 fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -> Unit, onDeleteClicked: () -> Unit) {
+    val priorityColor = when(task.priority){
+        "Haute" -> MaterialTheme.colorScheme.error
+        "Moyenne" -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -203,6 +211,7 @@ fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = task.title, style = MaterialTheme.typography.titleLarge)
                 Text(text = "État: ${task.status}", color = MaterialTheme.colorScheme.primary)
+                Text(text = "Priorité: ${task.priority}", color = priorityColor, style = MaterialTheme.typography.labelLarge)
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -228,8 +237,10 @@ fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -
 
 
 @Composable
-fun TaskFormScreen(initialTitle: String, onSave: (String) -> Unit, onCancel: () -> Unit) {
+fun TaskFormScreen(initialTitle: String, initialPriority: String = "Basse", onSave: (String, String) -> Unit, onCancel: () -> Unit) {
     var title by remember { mutableStateOf(initialTitle) }
+
+    var priority by remember { mutableStateOf(initialPriority) }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
@@ -237,21 +248,31 @@ fun TaskFormScreen(initialTitle: String, onSave: (String) -> Unit, onCancel: () 
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(Modifier.height(16.dp))
+
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
             label = { Text("Titre de la tâche") },
             modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(Modifier.height(16.dp))
+        Text("Priorité :", style = MaterialTheme.typography.bodyLarge)
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            FilterButton("Basse", priority) { priority = it }
+            FilterButton("Moyenne", priority) { priority = it }
+            FilterButton("Haute", priority) { priority = it }
+        }
+
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onCancel) { Text("Annuler") }
-            Button(onClick = { if (title.isNotBlank()) onSave(title) }) {
+
+            Button(onClick = { if (title.isNotBlank()) onSave(title, priority) }) {
                 Text("Sauvegarder")
             }
         }
     }
-
 }
 @Composable
 fun FilterButton(text: String, currentFilter: String, onClick: (String) -> Unit) {
