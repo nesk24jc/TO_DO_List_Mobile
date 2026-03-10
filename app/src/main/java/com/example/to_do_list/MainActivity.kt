@@ -51,49 +51,111 @@ fun TodoApp() {
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            if (showAddScreen) {
 
-                AddTaskScreen(
-                    onTaskAdded = { title ->
-                        // On ajoute la tâche à notre fausse liste
-                        mockTasks = mockTasks + Task(title)
-                        // On retourne à la liste
+            if (showAddScreen || taskToEdit != null) {
+                TaskFormScreen(
+
+                    initialTitle = taskToEdit?.title ?: "",
+                    onSave = { newTitle ->
+                        if (taskToEdit == null) {
+
+                            mockTasks = mockTasks + Task(newTitle)
+                        } else {
+
+                            mockTasks = mockTasks.map {
+                                if (it == taskToEdit) it.copy(title = newTitle) else it
+                            }
+                        }
+
                         showAddScreen = false
+                        taskToEdit = null
                     },
-                    onCancel = { showAddScreen = false }
+                    onCancel = {
+                        showAddScreen = false
+                        taskToEdit = null
+                    }
                 )
             } else {
+                TaskListScreen(
+                    tasks = mockTasks,
+                    onTaskUpdated = { taskToUpdate, newStatus ->
+                        mockTasks = mockTasks.map {
+                            if (it == taskToUpdate) it.copy(status = newStatus) else it
+                        }
+                    },
 
-                TaskListScreen(mockTasks)
+                    onEditClicked = { task ->
+                        taskToEdit = task
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun TaskListScreen(tasks: List<Task>) {
-
+fun TaskListScreen(tasks: List<Task>, onTaskUpdated: (Task, String) -> Unit, onEditClicked: (Task) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
         items(tasks) { task ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = task.title, style = MaterialTheme.typography.titleLarge)
-                    Text(text = "État: ${task.status}", color = MaterialTheme.colorScheme.primary)
-                }
-            }
+            TaskItem(
+                task = task,
+                onStatusChanged = { isChecked ->
+                    val newStatus = if (isChecked) "Réalisée" else "À faire"
+                    onTaskUpdated(task, newStatus)
+                },
+                onEditClicked = { onEditClicked(task) }
+            )
         }
     }
 }
 
 @Composable
-fun AddTaskScreen(onTaskAdded: (String) -> Unit, onCancel: () -> Unit) {
-    var title by remember { mutableStateOf("") }
+fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = task.title, style = MaterialTheme.typography.titleLarge)
+                Text(text = "État: ${task.status}", color = MaterialTheme.colorScheme.primary)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // NOUVEAU : Le bouton pour modifier la tâche
+                IconButton(onClick = onEditClicked) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier la tâche")
+                }
+
+                Checkbox(
+                    checked = task.status == "Réalisée",
+                    onCheckedChange = { isChecked ->
+                        onStatusChanged(isChecked)
+                    }
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+fun TaskFormScreen(initialTitle: String, onSave: (String) -> Unit, onCancel: () -> Unit) {
+    var title by remember { mutableStateOf(initialTitle) }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Nouvelle tâche", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            text = if (initialTitle.isEmpty()) "Nouvelle tâche" else "Modifier la tâche",
+            style = MaterialTheme.typography.headlineMedium
+        )
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = title,
