@@ -1,5 +1,6 @@
 package com.example.to_do_list
 
+import androidx.compose.material.icons.filled.Delete
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -151,7 +152,14 @@ fun TodoApp() {
                                 showWowEffect = true
                             }
                         },
-                        onEditClicked = { task -> taskToEdit = task }
+                        onEditClicked = { task -> taskToEdit = task },
+                        onDeleteClicked = { taskToDelete ->
+                            val updatedList = myTasks.filter { it != taskToDelete }
+                            myTasks = updatedList
+                            taskStorage.saveTasks(updatedList)
+                        }
+
+
                     )
                 }
             }
@@ -160,7 +168,12 @@ fun TodoApp() {
 }
 
 @Composable
-fun TaskListScreen(tasks: List<Task>, onTaskUpdated: (Task, String) -> Unit, onEditClicked: (Task) -> Unit) {
+fun TaskListScreen(
+    tasks: List<Task>,
+    onTaskUpdated: (Task, String) -> Unit,
+    onEditClicked: (Task) -> Unit,
+    onDeleteClicked: (Task) -> Unit
+) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
         items(tasks) { task ->
             TaskItem(
@@ -169,24 +182,21 @@ fun TaskListScreen(tasks: List<Task>, onTaskUpdated: (Task, String) -> Unit, onE
                     val newStatus = if (isChecked) "Réalisée" else "À faire"
                     onTaskUpdated(task, newStatus)
                 },
-                onEditClicked = { onEditClicked(task) }
+                onEditClicked = { onEditClicked(task) },
+                onDeleteClicked = { onDeleteClicked(task) }
             )
         }
     }
 }
 
 @Composable
-fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -> Unit) {
+fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -> Unit, onDeleteClicked: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -196,16 +206,20 @@ fun TaskItem(task: Task, onStatusChanged: (Boolean) -> Unit, onEditClicked: () -
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // NOUVEAU : Le bouton pour modifier la tâche
+
                 IconButton(onClick = onEditClicked) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Modifier la tâche")
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
                 }
+
+
+                IconButton(onClick = onDeleteClicked) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
+
 
                 Checkbox(
                     checked = task.status == "Réalisée",
-                    onCheckedChange = { isChecked ->
-                        onStatusChanged(isChecked)
-                    }
+                    onCheckedChange = { isChecked -> onStatusChanged(isChecked) }
                 )
             }
         }
