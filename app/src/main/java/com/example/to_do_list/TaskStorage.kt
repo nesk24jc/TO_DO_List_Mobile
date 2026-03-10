@@ -10,6 +10,7 @@ class TaskStorage(context: Context) {
 
 
 
+
     fun saveTasks(tasks: List<Task>) {
         val jsonArray = JSONArray()
         for (task in tasks) {
@@ -18,10 +19,11 @@ class TaskStorage(context: Context) {
             jsonObject.put("status", task.status)
             jsonObject.put("priority", task.priority)
             jsonObject.put("periodicity", task.periodicity)
+            if (task.dueDateMillis != null) jsonObject.put("dueDateMillis", task.dueDateMillis)
 
-            if (task.dueDateMillis != null) {
-                jsonObject.put("dueDateMillis", task.dueDateMillis)
-            }
+
+            if (task.photoUri != null) jsonObject.put("photoUri", task.photoUri)
+
             jsonArray.put(jsonObject)
         }
         prefs.edit().putString("tasks_data", jsonArray.toString()).apply()
@@ -41,8 +43,9 @@ class TaskStorage(context: Context) {
                     status = jsonObject.getString("status"),
                     priority = if (jsonObject.has("priority")) jsonObject.getString("priority") else "Basse",
                     periodicity = if (jsonObject.has("periodicity")) jsonObject.getString("periodicity") else "Aucune",
+                    dueDateMillis = if (jsonObject.has("dueDateMillis")) jsonObject.getLong("dueDateMillis") else null,
 
-                    dueDateMillis = if (jsonObject.has("dueDateMillis")) jsonObject.getLong("dueDateMillis") else null
+                    photoUri = if (jsonObject.has("photoUri")) jsonObject.getString("photoUri") else null
                 )
             )
         }
