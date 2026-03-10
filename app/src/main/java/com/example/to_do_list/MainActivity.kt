@@ -8,8 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -26,9 +28,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TodoApp() {
-
     var showAddScreen by remember { mutableStateOf(false) }
-
+    // NOUVEAU : Une variable pour mémoriser la tâche qu'on est en train de modifier
+    var taskToEdit by remember { mutableStateOf<Task?>(null) }
 
     var mockTasks by remember {
         mutableStateOf(
@@ -41,7 +43,7 @@ fun TodoApp() {
 
     Scaffold(
         floatingActionButton = {
-            if (!showAddScreen) {
+            if (!showAddScreen && taskToEdit == null) {
                 FloatingActionButton(onClick = { showAddScreen = true }) {
                     Icon(Icons.Filled.Add, contentDescription = "Ajouter")
                 }
