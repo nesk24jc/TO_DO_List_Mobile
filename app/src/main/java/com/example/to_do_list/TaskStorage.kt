@@ -62,4 +62,23 @@ class TaskStorage(context: Context) {
     fun getScore(): Int {
         return prefs.getInt("user_score", 0)
     }
+
+    fun saveStreak(streak: Int) {
+        prefs.edit().putInt("productivity_streak", streak).apply()
+    }
+
+
+    fun getStreak(): Int {
+        return prefs.getInt("productivity_streak", 0)
+    }
+
+
+    fun saveLastCompletionDay(timestamp: Long) {
+        prefs.edit().putLong("last_completion_day", timestamp).apply()
+    }
+
+
+    fun getLastCompletionDay(): Long {
+        return prefs.getInt("last_completion_day", 0).toLong()
+    }
 }

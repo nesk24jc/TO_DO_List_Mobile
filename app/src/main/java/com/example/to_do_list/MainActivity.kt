@@ -78,12 +78,25 @@ fun TodoApp() {
     var showWowEffect by remember { mutableStateOf(false) }
     var userScore by remember { mutableStateOf(taskStorage.getScore()) }
 
+
+    var userStreak by remember { mutableStateOf(taskStorage.getStreak()) }
+
+
+    val streakText = when {
+        userStreak >= 30 -> "🔥🔥🔥 🔥"
+        userStreak >= 10 -> "🔥🔥🔥"
+        userStreak >= 3 -> "🔥🔥"
+        userStreak >= 1 -> "🔥"
+        else -> "⚪"
+    }
+
     val userLevel = when {
         userScore >= 500 -> "👑 Maître du Temps"
         userScore >= 200 -> "🔥 Machine de Guerre"
         userScore >= 50 -> "🚀 Productif"
         else -> "🌱 Débutant"
     }
+
 
     LaunchedEffect(myTasks) {
         val currentTime = System.currentTimeMillis()
@@ -133,11 +146,12 @@ fun TodoApp() {
             Box(modifier = Modifier.padding(padding)) {
                 if (showAddScreen || taskToEdit != null) {
                     TaskFormScreen(
+
                         initialTitle = taskToEdit?.title ?: "",
                         initialPriority = taskToEdit?.priority ?: "Basse",
                         initialPeriodicity = taskToEdit?.periodicity ?: "Aucune",
                         initialDueDate = taskToEdit?.dueDateMillis,
-                        initialPhotoUri = taskToEdit?.photoUri, // NOUVEAU
+                        initialPhotoUri = taskToEdit?.photoUri,
                         onSave = { newTitle, newPriority, newPeriodicity, newDueDate, newPhotoUri ->
                             val updatedList = if (taskToEdit == null) {
                                 myTasks + Task(title = newTitle, priority = newPriority, periodicity = newPeriodicity, dueDateMillis = newDueDate, photoUri = newPhotoUri)
@@ -155,7 +169,14 @@ fun TodoApp() {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 16.dp)) {
                             Text("Mes Tâches", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
-                            Text("$userLevel • $userScore pts", fontSize = 16.sp, color = PrimaryAccent, fontWeight = FontWeight.Bold)
+
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "$userLevel • $userScore pts", fontSize = 16.sp, color = PrimaryAccent, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Text(text = "$streakText $userStreak j", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if(userStreak > 0) PriorityMed else Color.Gray)
+                            }
                         }
 
                         LazyRow(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -180,6 +201,26 @@ fun TodoApp() {
                                             userScore += pointsEarned
                                             taskStorage.saveScore(userScore)
                                             Toast.makeText(context, "+$pointsEarned points ! 🏆", Toast.LENGTH_SHORT).show()
+
+
+                                            val currentTime = System.currentTimeMillis()
+                                            val lastDay = taskStorage.getLastCompletionDay()
+                                            val currentDay = (currentTime / 86400000)
+
+                                            if (lastDay == currentDay) {
+
+                                            } else if (lastDay == (currentDay - 1)) {
+
+                                                userStreak += 1
+                                                taskStorage.saveStreak(userStreak)
+                                                taskStorage.saveLastCompletionDay(currentDay)
+                                                Toast.makeText(context, "Série ! $userStreak jours d'affilée ! 🔥", Toast.LENGTH_SHORT).show()
+                                            } else {
+
+                                                userStreak = 1
+                                                taskStorage.saveStreak(userStreak)
+                                                taskStorage.saveLastCompletionDay(currentDay)
+                                            }
 
                                             if (task.periodicity != "Aucune") {
                                                 val nextTask = Task(title = task.title, priority = task.priority, periodicity = task.periodicity, status = "À faire", dueDateMillis = task.dueDateMillis?.plus(86400000), photoUri = task.photoUri)
