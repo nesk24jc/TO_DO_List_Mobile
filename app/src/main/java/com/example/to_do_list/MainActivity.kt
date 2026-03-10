@@ -3,27 +3,83 @@ package com.example.to_do_list
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.to_do_list.ui.theme.TO_DO_ListTheme
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            TO_DO_ListTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            MaterialTheme {
+                TodoApp()
+            }
+        }
+    }
+}
+
+@Composable
+fun TodoApp() {
+
+    var showAddScreen by remember { mutableStateOf(false) }
+
+
+    var mockTasks by remember {
+        mutableStateOf(
+            listOf(
+                Task("Créer le diagramme de classes", "À faire"),
+                Task("Trouver un nom extraordinairement vendeur", "Réalisée")
+            )
+        )
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            if (!showAddScreen) {
+                FloatingActionButton(onClick = { showAddScreen = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Ajouter")
+                }
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            if (showAddScreen) {
+
+                AddTaskScreen(
+                    onTaskAdded = { title ->
+                        // On ajoute la tâche à notre fausse liste
+                        mockTasks = mockTasks + Task(title)
+                        // On retourne à la liste
+                        showAddScreen = false
+                    },
+                    onCancel = { showAddScreen = false }
+                )
+            } else {
+
+                TaskListScreen(mockTasks)
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskListScreen(tasks: List<Task>) {
+
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
+        items(tasks) { task ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = task.title, style = MaterialTheme.typography.titleLarge)
+                    Text(text = "État: ${task.status}", color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -31,17 +87,22 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+fun AddTaskScreen(onTaskAdded: (String) -> Unit, onCancel: () -> Unit) {
+    var title by remember { mutableStateOf("") }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    TO_DO_ListTheme {
-        Greeting("Android")
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Nouvelle tâche", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Titre de la tâche") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = onCancel) { Text("Annuler") }
+            Button(onClick = { if (title.isNotBlank()) onTaskAdded(title) }) { Text("Créer") }
+        }
     }
 }
