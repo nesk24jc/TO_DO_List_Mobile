@@ -104,7 +104,9 @@ fun AddTaskScreen(onTaskAdded: (String) -> Unit, onCancel: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onCancel) { Text("Annuler") }
-            Button(onClick = { if (title.isNotBlank()) onTaskAdded(title) }) { Text("Créer") }
+            Button(onClick = { if (title.isNotBlank()) onSave(title) }) {
+                Text("Sauvegarder")
+            }
         }
     }
 }
